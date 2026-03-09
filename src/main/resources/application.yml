@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: passroute-backend
+
+  profiles:
+    active: local
+
+server:
+  servlet:
+    context-path: /api
+
+cors:
+  allowed-origins:
+    - http://localhost:3000
+
+swagger:
+  server-url:
+    local: http://localhost:8080/api
+    prod: https://pass-route.com/api
