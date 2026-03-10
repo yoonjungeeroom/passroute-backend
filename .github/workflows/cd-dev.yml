@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'corretto'
@@ -24,53 +24,20 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x ./gradlew
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Build with Gradle
-        uses: gradle/gradle-build-action@v2.6.0
-        with:
-          arguments: clean bootJar
+        run: ./gradlew clean bootJar
 
       - name: Docker image build
         run: docker build -f Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}:develop .
 
       - name: Docker login
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Docker Hub push
         run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}:develop
-
-  deploy-to-ec2:
-    needs: build-and-push-docker-image
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Upload deploy-dev.sh to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEV_EC2_HOST }}
-          username: ${{ secrets.DEV_EC2_USERNAME }}
-          key: ${{ secrets.DEV_EC2_KEY }}
-          source: "deploy/deploy-dev.sh"
-          target: "/home/ubuntu"
-
-      - name: Run deploy-dev.sh on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEV_EC2_HOST }}
-          username: ${{ secrets.DEV_EC2_USERNAME }}
-          key: ${{ secrets.DEV_EC2_KEY }}
-          script: |
-            chmod +x /home/ubuntu/deploy/deploy-dev.sh
-
-            DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}' \
-            DOCKER_IMAGE_NAME='${{ secrets.DOCKER_IMAGE_NAME }}' \
-            IMAGE_TAG='develop' \
-            DEV_MYSQL_URL='${{ secrets.DEV_MYSQL_URL }}' \
-            DEV_MYSQL_USER='${{ secrets.DEV_MYSQL_USER }}' \
-            DEV_MYSQL_PASSWORD='${{ secrets.DEV_MYSQL_PASSWORD }}' \
-            FRONT_ORIGIN='${{ secrets.FRONT_ORIGIN }}' \
-            bash /home/ubuntu/deploy/deploy-dev.sh
