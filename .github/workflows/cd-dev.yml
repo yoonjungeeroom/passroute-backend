@@ -13,7 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -30,8 +31,8 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean bootJar
 
-      - name: Docker image build
-        run: docker build -f Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}:develop .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Docker login
         uses: docker/login-action@v3
@@ -39,5 +40,44 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Docker Hub push
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}:develop
+      - name: Docker image build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}:develop
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-to-ec2:
+    needs: build-and-push-docker-image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_EC2_HOST }}
+          username: ${{ secrets.DEV_EC2_USERNAME }}
+          key: ${{ secrets.DEV_EC2_KEY }}
+          script: |
+            # 최신 이미지 pull
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}:develop
+
+            # 기존 컨테이너 중지 및 삭제
+            docker stop passroute-dev || true
+            docker rm passroute-dev || true
+
+            # 새 컨테이너 실행
+            docker run -d \
+              --name passroute-dev \
+              -p 8080:8080 \
+              -e SPRING_DATASOURCE_URL=${{ secrets.DEV_MYSQL_URL }} \
+              -e SPRING_DATASOURCE_USERNAME=${{ secrets.DEV_MYSQL_USER }} \
+              -e SPRING_DATASOURCE_PASSWORD=${{ secrets.DEV_MYSQL_PASSWORD }} \
+              -e FRONT_ORIGIN=${{ secrets.FRONT_ORIGIN }} \
+              ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}:develop
+
+            # 사용하지 않는 이미지 정리
+            docker image prune -f
