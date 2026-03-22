@@ -15,6 +15,7 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
+          cache-read-only: false
           java-version: '17'
           distribution: 'corretto'
 
