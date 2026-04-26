@@ -1,2 +1,2 @@
-package passroutebackend.user.repository;public class UserRepository {
+package passroutebackend.user.repository;public interface UserRepository {
 }
