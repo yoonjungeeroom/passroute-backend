@@ -1,2 +1,7 @@
-package passroutebackend.user.entity;public class AuthProvider {
+package passroutebackend.user.entity;
+
+public enum AuthProvider {
+    LOCAL,
+    GOOGLE,
+    KAKAO
 }
