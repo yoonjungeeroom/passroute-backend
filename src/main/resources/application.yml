@@ -25,6 +25,11 @@ server:
   servlet:
     context-path: /api
 
+jwt:
+  secret: ${JWT_SECRET:cGFzc3JvdXRlLWJhY2tlbmQtand0LXNlY3JldC1rZXktZm9yLWRldmVsb3BtZW50LW9ubHk=}
+  access-token-expiration: 1800000    # 30분
+  refresh-token-expiration: 604800000 # 7일
+
 cors:
   allowed-origins:
     - http://localhost:3000
